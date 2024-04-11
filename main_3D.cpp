@@ -6,17 +6,31 @@
 #include "wrapper/checkError.h"
 #include "application/Application.h"
 #include "glFramework/texture.h"
+#include "application\text.h"
 #include<cmath>
+
+
+std::string title = "3D Objection";
+std::string currentView = "-- Current View --";
+std::string view = "Perspective";
+
+
+// 默认旋转轴为Y轴
+std::string currentAxis = "Y";
+std::string rotateAxisDescription = "The current Rotation Axis is: " + currentAxis +"-axis";
 
 
 // 设置投影方式,0为正交投影,1为透视投影
 int projectionType = 1;
 
-
 GLuint vao;
 GLuint program;
 Texture* texture;
 Shader* shader = nullptr;
+Shader* textShader = nullptr;
+Text* text = nullptr;
+
+
 glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 glm::mat4 viewMatrix(1.0f);
 glm::mat4 projectionMatrix(1.0f);
@@ -56,7 +70,16 @@ void Scale(glm::vec3 value) {
 
 // 旋转
 void Rotation(float degree) {
-	transform = glm::rotate(transform, glm::radians(degree), glm::vec3(0.0f, 0.0f, 1.0f));
+	if (currentAxis == "X") {
+		transform = glm::rotate(glm::mat4(1.0f), glm::radians(degree), glm::vec3(1.0f, 0.0f, 0.0f)) * transform;
+	}
+	else if (currentAxis == "Y") {
+		transform = glm::rotate(glm::mat4(1.0f), glm::radians(degree), glm::vec3(0.0f, 1.0f, 0.0f)) * transform;
+	}
+	else if (currentAxis == "Z") {
+		transform = glm::rotate(glm::mat4(1.0f), glm::radians(degree), glm::vec3(0.0f, 0.0f, 1.0f)) * transform;
+	} 
+	
 	return;
 }
 
@@ -73,10 +96,25 @@ void OnKey(int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
 		if (projectionType == 1) {
 			projectionType = 0;
+			view = "Orthogonal";
 		}
 		else {
 			projectionType = 1;
+			view = "Perspective";
 		}
+	}
+	// 切换旋转轴
+	if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+		currentAxis = "X";
+		rotateAxisDescription = "The current Rotation Axis is: " + currentAxis + "-axis";
+	}
+	if (key == GLFW_KEY_Y && action == GLFW_PRESS) {
+		currentAxis = "Y";
+		rotateAxisDescription = "The current Rotation Axis is: " + currentAxis + "-axis";
+	}
+	if (key == GLFW_KEY_Z && action == GLFW_PRESS) {
+		currentAxis = "Z";
+		rotateAxisDescription = "The current Rotation Axis is: " + currentAxis + "-axis";
 	}
 	return;
 }
@@ -185,6 +223,13 @@ void processTransform(GLFWwindow* window) {
 		Scale(glm::vec3(1.0f - speed * 0.1f, 1.0f - speed * 0.1f, 1.0f - speed * 0.1f));
 	}
 
+	// 旋转
+	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+		Rotation(3.0f * speed);
+	}
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+		Rotation(-3.0f * speed);
+	}
 	return;
 }
 
@@ -207,7 +252,7 @@ void preparePerspective(float fov) {
 // 正交投影
 void prepareOrtho() {
 	// 参数: 左,右,下,上,近,远
-	projectionMatrix = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, 1000.0f, -1000.0f);
+	projectionMatrix = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, -1000.0f, 1000.0f);
 	return;
 }
 
@@ -406,6 +451,15 @@ void render() {
 	// 解绑
 	shader->end();
 
+
+	textShader->begin();
+	textShader->setMatrix4x4("projection", glm::ortho(0.0f, static_cast<GLfloat>((float)app->getWidth()), 0.0f, static_cast<GLfloat>((float)app->getHeight())));
+	textShader->begin();
+	text->RenderText(*textShader, currentView, (float)(app->getWidth() / 2.0f - 100.0f), (float)app->getHeight() - 30.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	text->RenderText(*textShader, view, (float)(app->getWidth() / 2.0f - 50.0f), (float)app->getHeight() - 60.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	text->RenderText(*textShader, title, 0.0f, (float)app->getHeight() - 20.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	text->RenderText(*textShader, rotateAxisDescription, (float)(app->getWidth() / 2.0f - 160.0f), 10.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	
 	return;
 }
 
@@ -435,8 +489,15 @@ int main() {
 	// 默认为透视投影
 	preparePerspective(fov);
 
+	textShader = new Shader("./assets/shaders/vertex_text.glsl", "./assets/shaders/fragment_text.glsl");
+	text = new Text(0);
+	text->loadText("./assets/fonts/font_1.ttf", 1);
+
 	// 确认开启深度缓冲
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// 3. 执行窗体循环
 	while (app->update()) {
 		// 渲染操作

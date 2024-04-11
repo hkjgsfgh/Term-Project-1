@@ -6,7 +6,12 @@
 #include "wrapper/checkError.h"
 #include "application/Application.h"
 #include "glFramework/texture.h"
+#include "application/text.h"
 
+
+std::string title = "2D Obejction";
+std::string currentView = "-- Current View --";
+std::string view = "Perspective";
 
 // 设置投影方式,0为正交投影,1为透视投影
 int projectionType = 1;
@@ -15,6 +20,8 @@ int projectionType = 1;
 GLuint vao, program;
 Texture* texture;
 Shader* shader = nullptr;
+Shader* textShader = nullptr;
+Text* text = nullptr;
 
 
 glm::mat4 transform(1.0f);
@@ -45,7 +52,6 @@ float currentTime = 0.0;
 // 设置切变的X和Y方向上的offset
 float XShear = 0.0;
 float YShear = 0.0;
-
 
 
 // 平移
@@ -109,9 +115,11 @@ void OnKey(int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
 		if (projectionType == 1) {
 			projectionType = 0;
+			view = "Orthogonal";
 		}
 		else {
 			projectionType = 1;
+			view = "Perspective";
 		}
 	}
 	return;
@@ -266,7 +274,7 @@ void preparePerspective(float fov) {
 // 正交投影
 void prepareOrtho() {
 	// 参数: 左,右,下,上,近,远
-	projectionMatrix = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, 1000.0f, -1000.0f);
+	projectionMatrix = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, -1000.0f, 1000.0f);
 	return;
 }
 
@@ -380,16 +388,23 @@ void render() {
 	shader->setMatrix4x4("transform", transform);
 	shader->setMatrix4x4("viewMatrix", viewMatrix);
 	shader->setMatrix4x4("projectionMatrix", projectionMatrix);
-
+	
 	// 2. 绑定当前的vao
 	GL_CALL(glBindVertexArray(vao));
-
+	
 	// 3. 发出绘制指令
 	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 	GL_CALL(glBindVertexArray(0));
-
 	// 解绑
 	shader->end();
+
+
+	textShader->begin();
+	textShader->setMatrix4x4("projection", glm::ortho(0.0f, static_cast<GLfloat>((float)app->getWidth()), 0.0f, static_cast<GLfloat>((float)app->getHeight())));
+	textShader->begin();
+	text->RenderText(*textShader, currentView, (float)(app->getWidth() / 2.0f - 100.0f), (float)app->getHeight() - 30.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	text->RenderText(*textShader, view, (float)(app->getWidth() / 2.0f - 50.0f), (float)app->getHeight() - 60.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
+	text->RenderText(*textShader, title, 0.0f, (float)app->getHeight() - 20.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), 1);
 
 	return;
 }
@@ -410,6 +425,11 @@ int main() {
 	GL_CALL(glViewport(0, 0, 800, 600));
 	GL_CALL(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
 
+	// Set OpenGL options
+	//glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// 隐藏光标，并捕捉它
 	glfwSetInputMode(app->getWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -419,8 +439,13 @@ int main() {
 	prepareCamera(cameraPos, cameraFront, cameraUp);
 	// 默认为透视投影
 	preparePerspective(fov);
-	
 
+
+	textShader = new Shader("./assets/shaders/vertex_text.glsl", "./assets/shaders/fragment_text.glsl");
+	text = new Text(0);
+	text->loadText("./assets/fonts/font_1.ttf", 1);
+
+	
 	// 3. 执行窗体循环
 	while (app->update()) {
 		// 渲染操作

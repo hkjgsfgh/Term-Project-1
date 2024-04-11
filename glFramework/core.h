@@ -11,6 +11,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include<glm/gtx/string_cast.hpp> // 查看矩阵内容
 
+#include <ft2build.h>
+#include FT_FREETYPE_H  // 渲染文字
+
 /*
 在core.h中引用glad和GLFW后,其他文件只需要#include "core.h"即可,解决了头文件重复引用的问题,因为core.h只会被编译一次
 */

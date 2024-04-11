@@ -33,6 +33,6 @@ add_subdirectory(glFramework)
 
 
 #本工程所有cpp文件编译链接，生成exe
-add_executable(glStudy "glad.c""main_3D.cpp")
+add_executable(glStudy "glad.c" "main_3D.cpp")
 
-target_link_libraries(glStudy glfw3.lib assimp-vc143-mt.lib wrapper app fw)
+target_link_libraries(glStudy glfw3.lib assimp-vc143-mt.lib freetype.lib wrapper app fw)
